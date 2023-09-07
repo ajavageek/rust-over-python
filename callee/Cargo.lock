@@ -507,6 +507,7 @@ dependencies = [
  "axum",
  "num",
  "serde",
+ "serde_json",
  "tokio",
 ]
 
