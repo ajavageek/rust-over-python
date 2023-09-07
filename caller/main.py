@@ -1,7 +1,13 @@
-import json
-import socket
-from typing import Optional
 import click
+from ctypes import c_double, CDLL, Structure
+from typing import Optional
+
+rust = CDLL('../callee/target/debug/libcomplex.dylib')
+
+
+class RustComplex(Structure):
+    _fields_ = [("re", c_double),
+                ("im", c_double)]
 
 
 @click.command()
@@ -13,24 +19,14 @@ import click
 def cli(command: Optional[str], arg1: Optional[str], arg2: Optional[str]) -> None:
     n1: complex = complex(arg1)
     n2: complex = complex(arg2)
-    result: complex = call_service(n1, n2, command)
-    print(result)
+    result: RustComplex = call_service(n1, n2, command)
+    print(complex(result.re, result.im))
 
 
-def call_service(n1: complex, n2: complex, command: str) -> complex:
-    with socket.socket(socket.AF_UNIX) as client:
-        data: dict[str, list[float]] = dict(command=command,a=[n1.real, n1.imag], b=[n2.real, n2.imag])
-        encoded: bytes = json.dumps(data).encode('UTF-8')
-        print(f'Sent: {encoded}')
-        client.connect("/tmp/socket")
-        client.send(encoded)
-        result: bytes = client.recv(0)
-        print(f'Received: {result}')
-        client.close()
-        match command:
-            case 'add': return n1 + n2
-            case 'sub': return n1 - n2
-            case 'mul': return n1 * n2
+def call_service(n1: complex, n2: complex, command: str) -> RustComplex:
+    rust.compute.restype = RustComplex
+    return rust.compute(command.encode("UTF-8"), c_double(n1.real), c_double(n1.imag), c_double(n2.real),
+                        c_double(n2.imag))
 
 
 if __name__ == '__main__':
